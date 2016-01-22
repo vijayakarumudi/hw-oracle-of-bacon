@@ -20,11 +20,15 @@ class OracleOfBacon
   validate :from_does_not_equal_to
 
   def from_does_not_equal_to
-    # YOUR CODE HERE
+    errors.add(:to,  "cannot be equal to 'from'") if from == to
   end
 
   def initialize(api_key='')
-    # your code here
+    @api_key = api_key
+    @from = 'Kevin Bacon'
+    @to = 'Kevin Bacon'
+    @uri = ""
+    
   end
 
   def find_connections
@@ -37,13 +41,17 @@ class OracleOfBacon
       # convert all of these into a generic OracleOfBacon::NetworkError,
       #  but keep the original error message
       # your code here
+      raise OracleOfBacon::NetworkError,e
     end
     # your code here: create the OracleOfBacon::Response object
+      OracleOfBacon::Response.new(xml)
   end
 
   def make_uri_from_arguments
     # your code here: set the @uri attribute to properly-escaped URI
     #   constructed from the @from, @to, @api_key arguments
+    @uri = "http://oracleofbacon.org/cgi-bin/xml?p=#{CGI.escape(@api_key)}&a=#{CGI.escape(@from)}&b=#{CGI.escape(@to)}"
+  
   end
       
   class Response
@@ -59,14 +67,48 @@ class OracleOfBacon
     def parse_response
       if ! @doc.xpath('/error').empty?
         parse_error_response
+      elsif !@doc.xpath('/link').empty?
+        parse_graph_response
+      elsif !@doc.xpath('/spellcheck').empty?
+        parse_spellcheck_response
+
       # your code here: 'elsif' clauses to handle other responses
       # for responses not matching the 3 basic types, the Response
-      # object should have type 'unknown' and data 'unknown response'         
+      # object should have type 'unknown' and data 'unknown response' 
+      else
+        parse_unknow_response
+        
       end
     end
+
     def parse_error_response
       @type = :error
       @data = 'Unauthorized access'
+    end
+    
+    def parse_graph_response
+      @type = :graph
+      @data = actors.zip(movies).flatten.compact.map(&:text)
+      
+    end
+    
+    def parse_spellcheck_response
+      @type = :spellcheck
+      @data = @doc.xpath('//match').map(&:text)
+      
+    end
+
+    def parse_unknow_response
+       @type =:unknown
+       @data ='unknown Response'
+    end
+
+    def actors
+      @doc.xpath('//actor')
+    end
+    
+    def movies
+       @doc.xpath('//movie')
     end
   end
 end
